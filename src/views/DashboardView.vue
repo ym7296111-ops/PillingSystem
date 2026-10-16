@@ -1,265 +1,245 @@
 <template>
   <div class="space-y-6 animate-fadeIn">
-    <!-- Welcome Banner -->
+    <!-- Welcome -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-700 rounded-3xl p-8 text-white relative overflow-hidden">
       <div class="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full -translate-x-32 -translate-y-32"></div>
       <div class="absolute bottom-0 right-0 w-96 h-96 bg-white/5 rounded-full translate-x-32 translate-y-32"></div>
-      <div class="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div>
-          <h1 class="text-2xl md:text-3xl font-bold mb-2">مرحباً بعودتك! 👋</h1>
-          <p class="text-white/80 text-sm md:text-base max-w-xl leading-relaxed">
-            إليك نظرة شاملة على أداء النظام اليوم. لديك {{ billsStore.stats.overdue }} فواتير متأخرة تحتاج متابعة و {{ subscribersStore.stats.pending }} مشتركين قيد الانتظار.
-          </p>
-          <div class="flex gap-3 mt-6">
-            <router-link to="/bills" class="bg-white text-primary-700 px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-gray-50 transition">عرض الفواتير المتأخرة</router-link>
-            <router-link to="/subscribers" class="bg-white/20 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-white/30 transition backdrop-blur">إضافة مشترك</router-link>
-          </div>
-        </div>
-        <div class="hidden md:flex gap-4">
-          <div class="bg-white/10 backdrop-blur rounded-2xl p-4 text-center min-w-[110px]">
-            <p class="text-2xl font-bold">{{ subscribersStore.stats.total }}</p>
-            <p class="text-xs text-white/70">إجمالي المشتركين</p>
-          </div>
-          <div class="bg-white/10 backdrop-blur rounded-2xl p-4 text-center min-w-[110px]">
-            <p class="text-2xl font-bold">{{ formatCurrency(billsStore.stats.totalAmount).split(' ')[0] }}</p>
-            <p class="text-xs text-white/70">إجمالي الفواتير</p>
-          </div>
+      <div class="relative">
+        <h1 class="text-2xl md:text-3xl font-bold mb-2">نظام الإدارة العامة لحسابات المشتركين - إدارة الإيصالات والخصومات</h1>
+        <p class="text-sm text-white/70">Subscriber Accounts Management System</p>
+        <p class="text-white/80 text-sm md:text-base max-w-3xl leading-relaxed mt-3">مرحباً بك في النظام المتكامل لإدارة الهيكلية التنظيمية (قطاع ← فرع ← مجموعة ← منطقة)، الإيصالات، الخصومات المستوردة، وحساب الأرصدة وفق السنة المالية (1 يوليو - 30 يونيو)</p>
+        <div class="flex flex-wrap gap-3 mt-6">
+          <router-link to="/hierarchy" class="bg-white text-primary-700 px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-gray-50 transition">إدارة الهيكلية</router-link>
+          <router-link to="/receipts" class="bg-white/20 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-white/30 transition backdrop-blur">إضافة إيصال</router-link>
         </div>
       </div>
     </div>
 
-    <!-- Stats Grid -->
+    <!-- Financial Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <StatCard
-        title="إجمالي المشتركين"
-        :value="subscribersStore.stats.total"
-        :subtitle="`${subscribersStore.stats.active} نشط، ${subscribersStore.stats.inactive} غير نشط`"
-        icon="👥"
-        icon-bg="bg-blue-100"
-        :progress="(subscribersStore.stats.active / (subscribersStore.stats.total || 1)) * 100"
-        progress-color="bg-blue-600"
-      />
-      <StatCard
-        title="إجمالي الفواتير"
-        :value="billsStore.stats.total"
-        :subtitle="`${formatCurrency(billsStore.stats.totalAmount)}`"
-        icon="🧾"
-        icon-bg="bg-amber-100"
-        change="+12%"
-        change-label="عن الشهر الماضي"
-        change-type="positive"
-      />
-      <StatCard
-        title="المبالغ المحصلة"
-        :value="formatCurrency(billsStore.stats.paidAmount)"
-        :subtitle="`${billsStore.stats.paid} فاتورة مدفوعة`"
-        icon="💰"
-        icon-bg="bg-emerald-100"
-        :progress="(billsStore.stats.paid / (billsStore.stats.total || 1)) * 100"
-        progress-color="bg-emerald-600"
-      />
-      <StatCard
-        title="المبالغ المستحقة"
-        :value="formatCurrency(billsStore.stats.unpaidAmount)"
-        :subtitle="`${billsStore.stats.overdue} متأخرة`"
-        icon="⚠️"
-        icon-bg="bg-red-100"
-        change-type="negative"
-        :change="billsStore.stats.overdue > 0 ? `${billsStore.stats.overdue} متأخرة` : ''"
-        change-label=""
-      />
+      <StatCard title="إجمالي الإيصالات هذا الشهر" :value="thisMonthReceiptsCount" :subtitle="formatCurrency(thisMonthReceiptsAmount)" icon="🧾" icon-bg="bg-blue-100" />
+      <StatCard title="إجمالي الخصومات المستوردة" :value="thisMonthDiscountsCount" :subtitle="formatCurrency(thisMonthDiscountsAmount)" icon="💸" icon-bg="bg-emerald-100" />
+      <StatCard title="مشتركين برصيد سالب (له)" :value="negativeBalanceCount" subtitle="أرصدة دائنة" icon="📉" icon-bg="bg-amber-100" />
+      <StatCard title="عدد المشتركين النشطين" :value="subscribersStore.subscribers.length" :subtitle="`${hierarchyStore.sectors.length} قطاع، ${hierarchyStore.branches.length} فرع`" icon="👥" icon-bg="bg-purple-100" />
+    </div>
+
+    <!-- Critical Alerts - مهم جداً -->
+    <div class="card p-6 border-red-200">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">🚨</div>
+        <div><h3 class="font-bold text-gray-900">التنبيهات الحرجة - Critical Alerts</h3><p class="text-sm text-gray-500">تنبيهات ذكية تحتاج متابعة فورية</p></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="border border-red-200 bg-red-50 rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-2"><span class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span><span class="text-sm font-bold text-red-800">🔴 بدون إيصالات هذا الشهر</span></div>
+          <p class="text-2xl font-bold text-red-700">{{ noReceiptThisMonth.length }}</p>
+          <p class="text-xs text-red-600 mt-1">مشترك لم يُصدر له إيصالات في {{ currentMonthName }}</p>
+          <div class="flex gap-2 mt-3"><button @click="showAlertDetails('noReceiptThisMonth')" class="btn-secondary text-xs flex-1">عرض التفاصيل</button><button @click="exportNoReceipt('thisMonth')" class="btn-ghost text-xs">📤 تصدير</button></div>
+        </div>
+        <div class="border border-amber-200 bg-amber-50 rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-2"><span class="w-3 h-3 bg-amber-500 rounded-full animate-pulse"></span><span class="text-sm font-bold text-amber-800">🟡 بدون إيصالات في يونيو</span></div>
+          <p class="text-2xl font-bold text-amber-700">{{ noReceiptJune.length }}</p>
+          <p class="text-xs text-amber-600 mt-1">آخر شهر في السنة المالية - حرج</p>
+          <div class="flex gap-2 mt-3"><button @click="showAlertDetails('noReceiptJune')" class="btn-secondary text-xs flex-1">عرض التفاصيل</button><button @click="exportNoReceipt('june')" class="btn-ghost text-xs">📤 تصدير</button></div>
+        </div>
+        <div class="border border-orange-200 bg-orange-50 rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-2"><span class="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span><span class="text-sm font-bold text-orange-800">🟠 أرصدة سالبة كبيرة</span></div>
+          <p class="text-2xl font-bold text-orange-700">{{ largeNegativeBalances.length }}</p>
+          <p class="text-xs text-orange-600 mt-1">رصيد سالب يتجاوز {{ formatCurrency(1000) }}</p>
+          <div class="flex gap-2 mt-3"><button @click="showAlertDetails('largeNegative')" class="btn-secondary text-xs flex-1">عرض التفاصيل</button><button @click="exportLargeNegative" class="btn-ghost text-xs">📤 تصدير</button></div>
+        </div>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Revenue Chart -->
-      <div class="lg:col-span-2">
-        <RevenueChart :data="revenueChartData" />
-      </div>
-
-      <!-- Status Distributions -->
-      <div class="space-y-6">
-        <StatusChart
-          title="حالة المشتركين"
-          subtitle="توزيع المشتركين حسب الحالة"
-          :labels="subscriberStatusLabels"
-          :values="subscriberStatusValues"
-          :colors="['#10b981','#6b7280','#ef4444','#f59e0b']"
-          :legend="subscriberLegend"
-        />
+      <div class="lg:col-span-2"><RevenueChart :data="revenueChartData" /></div>
+      <div class="card p-6">
+        <h3 class="font-bold mb-4">الفروع الأكثر نشاطاً</h3>
+        <div class="h-64"><canvas ref="branchChart"></canvas></div>
       </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Recent Bills -->
       <div class="card p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="font-bold text-gray-900">أحدث الفواتير</h3>
-          <router-link to="/bills" class="text-sm text-primary-600 hover:text-primary-700 font-medium">عرض الكل ←</router-link>
-        </div>
-        <div v-if="recentBills.length === 0" class="text-center py-8 text-gray-400 text-sm">
-          لا توجد فواتير حديثة
-        </div>
-        <div v-else class="space-y-3">
-          <div v-for="bill in recentBills" :key="bill.id" class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition group">
-            <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">🧾</div>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-sm truncate">{{ bill.billNumber }}</p>
-              <p class="text-xs text-gray-500">{{ getSubscriberName(bill.subscriberId) }} • {{ formatDateShort(bill.issueDate) }}</p>
-            </div>
-            <div class="text-left">
-              <p class="font-bold text-sm">{{ formatCurrency(bill.totalAmount) }}</p>
-              <span :class="['badge text-[10px]', getBillStatusColor(bill.status)]">{{ getBillStatusLabel(bill.status) }}</span>
-            </div>
+        <div class="flex items-center justify-between mb-4"><h3 class="font-bold">آخر الإيصالات (10)</h3><router-link to="/receipts" class="text-sm text-primary-600">عرض الكل ←</router-link></div>
+        <div v-if="recentReceipts.length === 0" class="text-center py-8 text-gray-400 text-sm">لا توجد إيصالات</div>
+        <div v-else class="space-y-2">
+          <div v-for="r in recentReceipts" :key="r.id" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-xs">🧾</div>
+            <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">{{ r.accountNumber }} - {{ getSubscriberName(r.accountNumber) }}</p><p class="text-xs text-gray-500">{{ formatDateShort(r.date) }} • {{ getTypeName(r.typeId) }}</p></div>
+            <p class="font-bold text-sm">{{ formatCurrency(r.amount) }}</p>
           </div>
         </div>
       </div>
-
-      <!-- Recent Subscribers & Activities -->
       <div class="card p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="font-bold text-gray-900">أحدث المشتركين</h3>
-          <router-link to="/subscribers" class="text-sm text-primary-600 hover:text-primary-700 font-medium">عرض الكل ←</router-link>
+        <h3 class="font-bold mb-4">ملخص الهيكلية</h3>
+        <div class="space-y-3">
+          <div class="flex justify-between p-3 bg-gray-50 rounded-xl"><span class="text-sm">القطاعات</span><span class="font-bold">{{ hierarchyStore.sectors.length }}</span></div>
+          <div class="flex justify-between p-3 bg-blue-50 rounded-xl"><span class="text-sm">الفروع (كود رقمين)</span><span class="font-bold">{{ hierarchyStore.branches.length }} / 99</span></div>
+          <div class="flex justify-between p-3 bg-purple-50 rounded-xl"><span class="text-sm">المجموعات (1-8 لكل فرع)</span><span class="font-bold">{{ hierarchyStore.groups.length }}</span></div>
+          <div class="flex justify-between p-3 bg-emerald-50 rounded-xl"><span class="text-sm">المناطق (7 أرقام)</span><span class="font-bold">{{ hierarchyStore.areas.length }}</span></div>
+          <div class="flex justify-between p-3 bg-amber-50 rounded-xl"><span class="text-sm">المشتركين (9 أرقام)</span><span class="font-bold">{{ subscribersStore.subscribers.length }}</span></div>
         </div>
-        <div v-if="recentSubscribers.length === 0" class="text-center py-8 text-gray-400 text-sm">
-          لا يوجد مشتركين بعد
-        </div>
-        <div v-else class="space-y-3">
-          <div v-for="sub in recentSubscribers" :key="sub.id" class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition">
-            <div class="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center font-bold text-primary-700 flex-shrink-0">
-              {{ sub.name.charAt(0) }}
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-sm truncate">{{ sub.name }}</p>
-              <p class="text-xs text-gray-500">{{ sub.phone }} • {{ sub.area }}</p>
-            </div>
-            <span :class="['badge text-[10px]', getSubscriberStatusColor(sub.status)]">{{ getSubscriberStatusLabel(sub.status) }}</span>
-          </div>
-        </div>
-
-        <div class="mt-8 pt-6 border-t border-gray-100">
-          <h4 class="font-bold text-sm mb-3">النشاط الأخير</h4>
-          <div class="space-y-2 max-h-40 overflow-y-auto">
-            <div v-for="act in recentActivities" :key="act.id" class="flex gap-3 text-xs">
-              <span class="text-gray-400 whitespace-nowrap">{{ formatTime(act.createdAt) }}</span>
-              <span class="text-gray-600 truncate">{{ act.description }}</span>
-            </div>
-            <div v-if="recentActivities.length === 0" class="text-xs text-gray-400">لا يوجد نشاط</div>
-          </div>
-        </div>
+        <div class="mt-4 p-3 bg-primary-50 rounded-xl text-xs text-primary-700">السنة المالية الحالية: {{ fiscalYear.label }} ({{ fiscalYear.start }} إلى {{ fiscalYear.end }})</div>
       </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="card p-6">
-      <h3 class="font-bold mb-4">إجراءات سريعة</h3>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <router-link to="/subscribers" class="p-4 rounded-xl border border-gray-200 hover:border-primary-200 hover:bg-primary-50 transition text-center group">
-          <div class="w-10 h-10 mx-auto mb-2 bg-blue-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition">👤➕</div>
-          <p class="text-sm font-medium">إضافة مشترك</p>
-        </router-link>
-        <router-link to="/bills" class="p-4 rounded-xl border border-gray-200 hover:border-amber-200 hover:bg-amber-50 transition text-center group">
-          <div class="w-10 h-10 mx-auto mb-2 bg-amber-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition">🧾➕</div>
-          <p class="text-sm font-medium">إنشاء فاتورة</p>
-        </router-link>
-        <button @click="exportAll" class="p-4 rounded-xl border border-gray-200 hover:border-emerald-200 hover:bg-emerald-50 transition text-center group">
-          <div class="w-10 h-10 mx-auto mb-2 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition">📤</div>
-          <p class="text-sm font-medium">تصدير البيانات</p>
-        </button>
-        <router-link to="/reports" class="p-4 rounded-xl border border-gray-200 hover:border-purple-200 hover:bg-purple-50 transition text-center group">
-          <div class="w-10 h-10 mx-auto mb-2 bg-purple-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition">📊</div>
-          <p class="text-sm font-medium">عرض التقارير</p>
-        </router-link>
+    <!-- Alert Details Modal -->
+    <div v-if="showAlertModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAlertModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden animate-fadeIn flex flex-col">
+        <div class="p-6 border-b flex items-center justify-between"><h3 class="font-bold">{{ alertModalTitle }}</h3><button @click="showAlertModal = false" class="w-8 h-8 rounded-lg hover:bg-gray-100">✕</button></div>
+        <div class="flex-1 overflow-y-auto p-6">
+          <div v-if="alertDetails.length === 0" class="text-center py-8 text-gray-400">لا توجد بيانات</div>
+          <div v-else class="space-y-2">
+            <div v-for="item in alertDetails" :key="item.accountNumber" class="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+              <div><p class="font-mono font-bold text-sm">{{ item.accountNumber }}</p><p class="text-xs text-gray-600">{{ item.name }} - {{ item.areaCode }}</p></div>
+              <div class="text-left"><p class="text-xs font-bold" :class="item.balance > 0 ? 'text-red-600' : 'text-emerald-600'">{{ formatCurrency(item.balance) }}</p><p class="text-[11px] text-gray-500">{{ item.balance > 0 ? 'عليه' : item.balance < 0 ? 'له' : 'صفر' }}</p></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useHierarchyStore } from '@/stores/hierarchy'
 import { useSubscribersStore } from '@/stores/subscribers'
-import { useBillsStore } from '@/stores/bills'
-import { usePaymentsStore } from '@/stores/payments'
-import { useSettingsStore } from '@/stores/settings'
-import { db } from '@/db'
+import { useReceiptsStore } from '@/stores/receipts'
+import { useDiscountsStore } from '@/stores/discounts'
+import { useReceiptTypesStore } from '@/stores/receiptTypes'
+import { db, getCurrentFiscalYear } from '@/db'
 import { formatCurrency, formatDateShort } from '@/utils/helpers'
-import { SUBSCRIBER_STATUS, BILL_STATUS, MONTHS_AR } from '@/utils/constants'
 import StatCard from '@/components/dashboard/StatCard.vue'
 import RevenueChart from '@/components/dashboard/RevenueChart.vue'
-import StatusChart from '@/components/dashboard/StatusChart.vue'
-import { useToast } from 'vue-toastification'
+import { Chart, registerables } from 'chart.js'
+Chart.register(...registerables)
+import { useExport } from '@/composables/useExport'
 
-const toast = useToast()
+const hierarchyStore = useHierarchyStore()
 const subscribersStore = useSubscribersStore()
-const billsStore = useBillsStore()
-const paymentsStore = usePaymentsStore()
-const settingsStore = useSettingsStore()
+const receiptsStore = useReceiptsStore()
+const discountsStore = useDiscountsStore()
+const receiptTypesStore = useReceiptTypesStore()
+const { exportToExcel } = useExport()
 
-const recentActivities = ref([])
+const fiscalYear = getCurrentFiscalYear()
+const branchChart = ref(null)
+let branchChartInstance = null
+
+const balances = ref({})
+const showAlertModal = ref(false)
+const alertModalTitle = ref('')
+const alertDetails = ref([])
+const currentAlertType = ref('')
+
+const currentMonthName = new Date().toLocaleDateString('ar-EG', { month: 'long' })
 
 onMounted(async () => {
-  await Promise.all([
-    subscribersStore.fetchSubscribers(),
-    billsStore.fetchBills(),
-    paymentsStore.fetchPayments(),
-    settingsStore.fetchSettings()
-  ])
-  recentActivities.value = await db.activities.orderBy('createdAt').reverse().limit(10).toArray()
+  await Promise.all([hierarchyStore.fetchAll(), subscribersStore.fetchSubscribers(), receiptsStore.fetchReceipts(), discountsStore.fetchDiscounts(), receiptTypesStore.fetchTypes()])
+  await loadBalances()
+  renderBranchChart()
 })
 
-const recentBills = computed(() => [...billsStore.bills].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0,5))
-const recentSubscribers = computed(() => [...subscribersStore.subscribers].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0,5))
-
-const getSubscriberName = (id) => subscribersStore.subscribers.find(s => s.id === id)?.name || 'غير معروف'
-const getBillStatusLabel = (status) => BILL_STATUS.find(s => s.value === status)?.label || status
-const getBillStatusColor = (status) => BILL_STATUS.find(s => s.value === status)?.color || 'badge-gray'
-const getSubscriberStatusLabel = (status) => SUBSCRIBER_STATUS.find(s => s.value === status)?.label || status
-const getSubscriberStatusColor = (status) => SUBSCRIBER_STATUS.find(s => s.value === status)?.color || 'badge-gray'
-
-const formatTime = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
-  return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+const loadBalances = async () => {
+  const subs = await db.subscribers.toArray()
+  const receipts = await db.receipts.toArray()
+  const discounts = await db.discounts.toArray()
+  const map = {}
+  subs.forEach(s => {
+    const rTotal = receipts.filter(r => r.accountNumber === s.accountNumber).reduce((sum, r) => sum + Number(r.amount), 0)
+    const dTotal = discounts.filter(d => d.accountNumber === s.accountNumber).reduce((sum, d) => sum + Number(d.discountAmount), 0)
+    map[s.accountNumber] = Number(s.openingBalance) + rTotal - dTotal
+  })
+  balances.value = map
 }
 
-const subscriberStatusLabels = computed(() => SUBSCRIBER_STATUS.map(s => s.label))
-const subscriberStatusValues = computed(() => SUBSCRIBER_STATUS.map(s => subscribersStore.subscribers.filter(sub => sub.status === s.value).length))
-const subscriberLegend = computed(() => SUBSCRIBER_STATUS.map((s, idx) => ({
-  label: s.label,
-  value: subscriberStatusValues.value[idx],
-  color: ['#10b981','#6b7280','#ef4444','#f59e0b'][idx]
-})))
-
-const revenueChartData = computed(() => {
-  const months = []
-  const paid = []
-  const unpaid = []
+const thisMonthReceipts = computed(() => {
   const now = new Date()
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    months.push(MONTHS_AR[d.getMonth()])
-    const monthBills = billsStore.bills.filter(b => {
-      const bd = new Date(b.issueDate)
-      return bd.getMonth() === d.getMonth() && bd.getFullYear() === d.getFullYear()
-    })
-    paid.push(monthBills.filter(b => b.status === 'paid').reduce((sum, b) => sum + Number(b.totalAmount), 0))
-    unpaid.push(monthBills.filter(b => b.status !== 'paid').reduce((sum, b) => sum + Number(b.totalAmount), 0))
-  }
-  return { months, paid, unpaid }
+  return receiptsStore.receipts.filter(r => { const d = new Date(r.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+})
+const thisMonthReceiptsCount = computed(() => thisMonthReceipts.value.length)
+const thisMonthReceiptsAmount = computed(() => thisMonthReceipts.value.reduce((s, r) => s + Number(r.amount), 0))
+
+const thisMonthDiscounts = computed(() => {
+  const now = new Date()
+  const monthName = now.toLocaleDateString('ar-EG', { month: 'long' })
+  return discountsStore.discounts.filter(d => d.fiscalMonth?.includes(monthName))
+})
+const thisMonthDiscountsCount = computed(() => thisMonthDiscounts.value.length)
+const thisMonthDiscountsAmount = computed(() => thisMonthDiscounts.value.reduce((s, d) => s + Number(d.discountAmount), 0))
+
+const negativeBalanceCount = computed(() => Object.values(balances.value).filter(b => b < 0).length)
+
+const noReceiptThisMonth = computed(() => {
+  const now = new Date()
+  const thisMonthReceiptAccounts = new Set(thisMonthReceipts.value.map(r => r.accountNumber))
+  return subscribersStore.subscribers.filter(s => !thisMonthReceiptAccounts.has(s.accountNumber)).map(s => ({ ...s, balance: balances.value[s.accountNumber] || 0 }))
 })
 
-const exportAll = async () => {
-  try {
-    const data = await settingsStore.exportDatabase()
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `backup-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('تم تصدير النسخة الاحتياطية بنجاح')
-  } catch (e) {
-    toast.error('فشل التصدير')
-  }
+const noReceiptJune = computed(() => {
+  const juneReceipts = receiptsStore.receipts.filter(r => { const d = new Date(r.date); return d.getMonth() === 5 })
+  const juneAccounts = new Set(juneReceipts.map(r => r.accountNumber))
+  return subscribersStore.subscribers.filter(s => !juneAccounts.has(s.accountNumber)).map(s => ({ ...s, balance: balances.value[s.accountNumber] || 0 }))
+})
+
+const largeNegativeBalances = computed(() => {
+  return subscribersStore.subscribers.filter(s => (balances.value[s.accountNumber] || 0) < -1000).map(s => ({ ...s, balance: balances.value[s.accountNumber] }))
+})
+
+const recentReceipts = computed(() => [...receiptsStore.receipts].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,10))
+
+const getSubscriberName = (acc) => subscribersStore.subscribers.find(s => s.accountNumber === acc)?.name || 'غير معروف'
+const getTypeName = (id) => receiptTypesStore.types.find(t => t.id === id)?.name || '-'
+
+const revenueChartData = computed(() => {
+  const months = ['يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر','يناير','فبراير','مارس','أبريل','مايو','يونيو']
+  const monthNumbers = [7,8,9,10,11,12,1,2,3,4,5,6]
+  const receipts = monthNumbers.map(m => {
+    return receiptsStore.receipts.filter(r => new Date(r.date).getMonth() + 1 === m).reduce((s, r) => s + Number(r.amount), 0)
+  })
+  const discounts = monthNumbers.map(m => {
+    // Approximate: discounts don't have exact date, use fiscalMonth
+    return 0 // Simplified
+  })
+  return { months, receipts, discounts }
+})
+
+const renderBranchChart = () => {
+  if (!branchChart.value) return
+  if (branchChartInstance) branchChartInstance.destroy()
+  const branchData = hierarchyStore.branches.map(b => {
+    const count = receiptsStore.receipts.filter(r => r.accountNumber.startsWith(b.code)).length
+    return { name: b.name, count }
+  }).sort((a,b) => b.count - a.count).slice(0,5)
+
+  branchChartInstance = new Chart(branchChart.value, {
+    type: 'bar',
+    data: { labels: branchData.map(b => b.name), datasets: [{ label: 'إيصالات', data: branchData.map(b => b.count), backgroundColor: '#8b5cf6', borderRadius: 8 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { rtl: true, titleFont: { family: 'Cairo' }, bodyFont: { family: 'Cairo' } } }, scales: { x: { beginAtZero: true, ticks: { font: { family: 'Cairo' } } }, y: { ticks: { font: { family: 'Cairo' } } } } }
+  })
+}
+
+watch(() => receiptsStore.receipts.length, renderBranchChart)
+
+const showAlertDetails = (type) => {
+  currentAlertType.value = type
+  if (type === 'noReceiptThisMonth') { alertModalTitle.value = `بدون إيصالات في ${currentMonthName} - ${noReceiptThisMonth.value.length} مشترك`; alertDetails.value = noReceiptThisMonth.value }
+  if (type === 'noReceiptJune') { alertModalTitle.value = `بدون إيصالات في يونيو (آخر السنة المالية) - ${noReceiptJune.value.length} مشترك`; alertDetails.value = noReceiptJune.value }
+  if (type === 'largeNegative') { alertModalTitle.value = `أرصدة سالبة كبيرة - ${largeNegativeBalances.value.length} مشترك`; alertDetails.value = largeNegativeBalances.value }
+  showAlertModal.value = true
+}
+
+const exportNoReceipt = (type) => {
+  const data = type === 'thisMonth' ? noReceiptThisMonth.value : noReceiptJune.value
+  const exportData = data.map(s => ({ 'رقم الحساب': s.accountNumber, 'الاسم': s.name, 'المنطقة': s.areaCode, 'الرصيد': s.balance, 'الحالة': s.balance > 0 ? 'عليه' : s.balance < 0 ? 'له' : 'صفر' }))
+  exportToExcel(exportData, `بدون-إيصالات-${type}-${new Date().toISOString().split('T')[0]}`, 'تنبيه')
+}
+
+const exportLargeNegative = () => {
+  const exportData = largeNegativeBalances.value.map(s => ({ 'رقم الحساب': s.accountNumber, 'الاسم': s.name, 'الرصيد': s.balance }))
+  exportToExcel(exportData, `أرصدة-سالبة-كبيرة-${new Date().toISOString().split('T')[0]}`, 'تنبيه')
 }
 </script>

@@ -1,327 +1,251 @@
 <template>
   <div class="space-y-6 animate-fadeIn">
-    <!-- Header Actions -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">👥</div>
         <div>
           <h1 class="text-xl font-bold">إدارة المشتركين</h1>
-          <p class="text-sm text-gray-500">{{ filtered.length }} مشترك من أصل {{ store.subscribers.length }}</p>
+          <p class="text-sm text-gray-500">رقم الحساب 9 أرقام: [كود فرع رقمين] + [أصفار] + [رقم اشتراك] - {{ filtered.length }} مشترك</p>
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button @click="showImport = true" class="btn-secondary text-sm">
-          <span class="ml-2">📥</span> استيراد Excel
-        </button>
-        <button @click="handleExport" class="btn-secondary text-sm">
-          <span class="ml-2">📤</span> تصدير Excel
-        </button>
-        <button @click="openAdd" class="btn-primary text-sm">
-          <span class="ml-2">➕</span> إضافة مشترك
-        </button>
+        <button @click="downloadTemplate" class="btn-secondary text-sm">📋 تحميل قالب Excel</button>
+        <button @click="showImport = true" class="btn-secondary text-sm">📥 استيراد جماعي</button>
+        <button @click="openAdd" class="btn-primary text-sm">➕ إضافة مشترك</button>
       </div>
+    </div>
+
+    <!-- Formula Info -->
+    <div class="card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+      <h4 class="font-bold text-sm text-blue-900 mb-2">💡 معادلة رقم الحساب (9 أرقام)</h4>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div class="bg-white p-3 rounded-xl">فرع 12، اشتراك 45678 → <span class="font-mono font-bold">120045678</span></div>
+        <div class="bg-white p-3 rounded-xl">فرع 05، اشتراك 500 → <span class="font-mono font-bold">050000500</span></div>
+        <div class="bg-white p-3 rounded-xl">فرع 01، اشتراك 123 → <span class="font-mono font-bold">010000123</span></div>
+      </div>
+      <p class="text-[11px] text-blue-700 mt-2">رقم الاشتراك فريد داخل نفس الفرع فقط، لكن رقم الحساب فريد على مستوى النظام</p>
     </div>
 
     <!-- Filters -->
     <div class="card p-5">
       <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div class="md:col-span-2">
-          <SearchInput v-model="store.searchQuery" placeholder="بحث بالاسم، الهاتف، البريد، الرقم القومي..." />
-        </div>
-        <select v-model="store.statusFilter" class="input text-sm">
-          <option value="">جميع الحالات</option>
-          <option v-for="s in subscriberStatus" :key="s.value" :value="s.value">{{ s.label }}</option>
-        </select>
-        <select v-model="store.typeFilter" class="input text-sm">
-          <option value="">جميع الأنواع</option>
-          <option v-for="t in subscriptionTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
-        </select>
-        <select v-model="store.areaFilter" class="input text-sm">
-          <option value="">جميع المناطق</option>
-          <option v-for="area in areas" :key="area" :value="area">{{ area }}</option>
-        </select>
-      </div>
-      <div v-if="hasActiveFilters" class="mt-3 flex items-center gap-2">
-        <span class="text-xs text-gray-500">الفلاتر النشطة:</span>
-        <button v-if="store.statusFilter" @click="store.statusFilter=''" class="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full">{{ getStatusLabel(store.statusFilter) }} ✕</button>
-        <button v-if="store.typeFilter" @click="store.typeFilter=''" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">{{ getTypeLabel(store.typeFilter) }} ✕</button>
-        <button v-if="store.areaFilter" @click="store.areaFilter=''" class="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">{{ store.areaFilter }} ✕</button>
-        <button @click="clearFilters" class="text-xs text-gray-500 hover:text-gray-700">مسح الكل</button>
-      </div>
-    </div>
-
-    <!-- Stats mini -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-      <div v-for="stat in miniStats" :key="stat.label" class="bg-white rounded-xl p-4 border border-gray-100 flex items-center justify-between">
-        <div>
-          <p class="text-xs text-gray-500">{{ stat.label }}</p>
-          <p class="text-lg font-bold">{{ stat.value }}</p>
-        </div>
-        <span class="text-xl">{{ stat.icon }}</span>
+        <div class="md:col-span-2"><SearchInput v-model="store.searchQuery" placeholder="بحث برقم الحساب، الاسم، الهاتف..." /></div>
+        <select v-model="store.branchFilter" class="input text-sm"><option value="">جميع الفروع</option><option v-for="b in hierarchyStore.branches" :key="b.id" :value="b.code">{{ b.code }} - {{ b.name }}</option></select>
+        <select v-model="store.groupFilter" class="input text-sm"><option value="">جميع المجموعات</option><option v-for="g in hierarchyStore.groups" :key="g.id" :value="g.code">{{ g.code }} - {{ g.name }}</option></select>
+        <select v-model="store.areaFilter" class="input text-sm"><option value="">جميع المناطق</option><option v-for="a in hierarchyStore.areas" :key="a.id" :value="a.code">{{ a.code }} - {{ a.name }}</option></select>
       </div>
     </div>
 
     <!-- Table -->
     <div class="card overflow-hidden">
-      <div v-if="store.loading" class="p-12 text-center">
-        <div class="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full mx-auto mb-3"></div>
-        <p class="text-sm text-gray-500">جاري تحميل البيانات...</p>
-      </div>
-
-      <div v-else-if="paginated.length === 0">
-        <EmptyState icon="👥" title="لا يوجد مشتركين" description="لم يتم العثور على مشتركين يطابقون البحث. جرب تغيير الفلاتر أو أضف مشترك جديد." >
-          <button @click="openAdd" class="btn-primary mt-4">إضافة أول مشترك</button>
-        </EmptyState>
-      </div>
-
+      <div v-if="store.loading" class="p-12 text-center"><div class="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full mx-auto"></div></div>
+      <div v-else-if="paginated.length === 0"><EmptyState icon="👥" title="لا يوجد مشتركين" description="أضف مشتركين عبر الاستيراد الجماعي أو الإضافة اليدوية" ><button @click="openAdd" class="btn-primary mt-4">إضافة أول مشترك</button></EmptyState></div>
       <div v-else class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-gray-50 border-b border-gray-100">
-            <tr class="text-xs text-gray-500 text-right">
-              <th class="px-4 py-3 font-semibold">المشترك</th>
-              <th class="px-4 py-3 font-semibold">التواصل</th>
-              <th class="px-4 py-3 font-semibold">المنطقة</th>
-              <th class="px-4 py-3 font-semibold">النوع</th>
-              <th class="px-4 py-3 font-semibold">الحالة</th>
-              <th class="px-4 py-3 font-semibold">تاريخ الانضمام</th>
-              <th class="px-4 py-3 font-semibold text-center">الإجراءات</th>
-            </tr>
+          <thead class="bg-gray-50 border-b text-xs text-gray-500">
+            <tr><th class="px-4 py-3 text-right">رقم الحساب (PK)</th><th class="px-4 py-3 text-right">رقم الاشتراك</th><th class="px-4 py-3 text-right">الاسم</th><th class="px-4 py-3 text-right">كود المنطقة</th><th class="px-4 py-3 text-right">الرصيد الافتتاحي</th><th class="px-4 py-3 text-right">الرصيد الحالي</th><th class="px-4 py-3 text-center">إجراءات</th></tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
-            <tr v-for="sub in paginated" :key="sub.id" class="hover:bg-gray-50/70 transition group">
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                    {{ sub.name.charAt(0) }}
-                  </div>
-                  <div class="min-w-0">
-                    <p class="font-medium text-sm truncate max-w-[150px]">{{ sub.name }}</p>
-                    <p class="text-xs text-gray-500 truncate">{{ sub.nationalId || 'بدون رقم قومي' }}</p>
-                  </div>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <p class="text-sm font-medium">{{ sub.phone }}</p>
-                <p class="text-xs text-gray-500 truncate max-w-[150px]">{{ sub.email || 'بدون بريد' }}</p>
-              </td>
-              <td class="px-4 py-3 text-sm">{{ sub.area }}</td>
-              <td class="px-4 py-3">
-                <span :class="['badge text-xs', getTypeColor(sub.subscriptionType)]">{{ getTypeLabel(sub.subscriptionType) }}</span>
-              </td>
-              <td class="px-4 py-3">
-                <span :class="['badge text-xs', getStatusColor(sub.status)]">{{ getStatusLabel(sub.status) }}</span>
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-600">{{ formatDateShort(sub.joinDate) }}</td>
-              <td class="px-4 py-3">
-                <div class="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <router-link :to="`/subscribers/${sub.id}`" class="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center text-sm" title="عرض">👁️</router-link>
-                  <button @click="openEdit(sub)" class="w-8 h-8 rounded-lg bg-amber-50 hover:bg-amber-100 flex items-center justify-center text-sm" title="تعديل">✏️</button>
-                  <button @click="confirmDelete(sub)" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-sm" title="حذف">🗑️</button>
-                </div>
-                <div class="flex md:hidden items-center justify-center gap-1">
-                  <router-link :to="`/subscribers/${sub.id}`" class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">👁️</router-link>
-                  <button @click="openEdit(sub)" class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">✏️</button>
-                </div>
-              </td>
+            <tr v-for="sub in paginated" :key="sub.accountNumber" class="hover:bg-gray-50 text-sm">
+              <td class="px-4 py-3 font-mono font-bold">{{ sub.accountNumber }}</td>
+              <td class="px-4 py-3 font-mono">{{ sub.subscriptionNumber }}</td>
+              <td class="px-4 py-3"><div class="font-medium">{{ sub.name }}</div><div class="text-xs text-gray-500">{{ sub.phone }} • {{ sub.idNumber }}</div></td>
+              <td class="px-4 py-3 font-mono">{{ sub.areaCode }}</td>
+              <td class="px-4 py-3">{{ formatCurrency(sub.openingBalance) }}</td>
+              <td class="px-4 py-3 font-bold" :class="getBalanceColor(balances[sub.accountNumber])">{{ formatCurrency(balances[sub.accountNumber] ?? sub.openingBalance) }}<span class="text-[10px] mr-1">{{ getBalanceLabel(balances[sub.accountNumber] ?? sub.openingBalance) }}</span></td>
+              <td class="px-4 py-3 text-center"><div class="flex justify-center gap-1"><button @click="openEdit(sub)" class="w-8 h-8 rounded-lg bg-amber-50">✏️</button><button @click="confirmDelete(sub)" class="w-8 h-8 rounded-lg bg-red-50">🗑️</button><button @click="viewStatement(sub)" class="w-8 h-8 rounded-lg bg-blue-50" title="كشف حساب">📄</button></div></td>
             </tr>
           </tbody>
         </table>
       </div>
-
-      <div v-if="filtered.length > perPage" class="p-4 border-t border-gray-100">
-        <Pagination :current-page="currentPage" :total="filtered.length" :per-page="perPage" @update:page="currentPage = $event" />
-      </div>
+      <div v-if="filtered.length > perPage" class="p-4 border-t"><Pagination :current-page="currentPage" :total="filtered.length" :per-page="perPage" @update:page="currentPage = $event" /></div>
     </div>
 
-    <!-- Modals -->
-    <SubscriberForm v-if="showForm" :subscriber="selectedSubscriber" :loading="saving" @close="showForm = false" @save="handleSave" />
-
-    <ConfirmModal
-      :show="showDelete"
-      title="حذف المشترك"
-      :message="`هل أنت متأكد من حذف المشترك ${selectedSubscriber?.name}؟ سيتم حذف جميع الفواتير والمدفوعات المرتبطة به.`"
-      icon="🗑️"
-      icon-bg="bg-red-100"
-      confirm-text="حذف نهائي"
-      confirm-class="btn-danger"
-      @close="showDelete = false"
-      @confirm="handleDelete"
-    />
+    <!-- Add/Edit Modal -->
+    <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showForm = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-fadeIn flex flex-col">
+        <div class="p-6 border-b flex items-center justify-between"><h3 class="font-bold">{{ isEdit ? 'تعديل مشترك' : 'إضافة مشترك جديد' }}</h3><button @click="showForm = false" class="w-8 h-8 rounded-lg hover:bg-gray-100">✕</button></div>
+        <form @submit.prevent="handleSave" class="flex-1 overflow-y-auto p-6 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label class="label">الفرع *</label><select v-model="form.branchCode" class="input" @change="updateAccountNumber" required><option value="">اختر الفرع</option><option v-for="b in hierarchyStore.branches" :key="b.id" :value="b.code">{{ b.code }} - {{ b.name }}</option></select></div>
+            <div><label class="label">رقم الاشتراك *</label><input v-model="form.subscriptionNumber" type="number" class="input font-mono" @input="updateAccountNumber" placeholder="مثال: 45678" required /></div>
+            <div class="md:col-span-2"><label class="label">رقم الحساب (9 أرقام - محسوب تلقائياً) *</label><div class="input bg-gray-50 font-mono font-bold text-primary-700">{{ form.accountNumber || 'اختر الفرع ورقم الاشتراك' }}</div><p class="text-[11px] text-gray-500 mt-1">المعادلة: كود فرع (رقمين) + أصفار + رقم اشتراك = 9 أرقام</p></div>
+            <div><label class="label">كود المنطقة (7 أرقام) *</label><select v-model="form.areaCode" class="input font-mono" required><option value="">اختر المنطقة</option><option v-for="a in hierarchyStore.areas" :key="a.id" :value="a.code">{{ a.code }} - {{ a.name }}</option></select></div>
+            <div><label class="label">الرصيد الافتتاحي (1/7) *</label><input v-model.number="form.openingBalance" type="number" step="0.01" class="input" required /></div>
+            <div class="md:col-span-2"><label class="label">اسم المشترك (عربي) *</label><input v-model="form.name" type="text" class="input" required /></div>
+            <div><label class="label">رقم الهوية/السجل</label><input v-model="form.idNumber" type="text" class="input" /></div>
+            <div><label class="label">رقم الهاتف</label><input v-model="form.phone" type="text" class="input" /></div>
+          </div>
+          <div class="flex gap-3 pt-4 border-t"><button type="button" @click="showForm = false" class="btn-secondary flex-1">إلغاء</button><button type="submit" :disabled="saving" class="btn-primary flex-1">{{ isEdit ? 'حفظ' : 'إضافة' }}</button></div>
+        </form>
+      </div>
+    </div>
 
     <!-- Import Modal -->
     <div v-if="showImport" class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showImport = false"></div>
-      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-fadeIn">
-        <h3 class="font-bold text-lg mb-2">استيراد المشتركين من Excel</h3>
-        <p class="text-sm text-gray-500 mb-6">قم برفع ملف Excel يحتوي على أعمدة: الاسم، الهاتف، البريد، المنطقة، نوع الاشتراك، الحالة</p>
-        
-        <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition">
-          <input ref="fileInput" type="file" accept=".xlsx,.xls,.csv" @change="handleFileSelect" class="hidden" />
-          <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center mx-auto mb-3">📁</div>
-          <p class="text-sm font-medium mb-2">{{ importFile ? importFile.name : 'اسحب الملف هنا أو اضغط للاختيار' }}</p>
-          <button @click="$refs.fileInput.click()" class="btn-secondary text-sm">اختيار ملف</button>
-          <p class="text-xs text-gray-400 mt-3">يدعم xlsx, xls, csv</p>
-        </div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden animate-fadeIn flex flex-col">
+        <div class="p-6 border-b"><h3 class="font-bold text-lg">استيراد جماعي - Bulk Import</h3><p class="text-sm text-gray-500">قالب Excel مع التحقق المسبق (Pre-validation)</p></div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition">
+            <input ref="fileInput" type="file" accept=".xlsx,.xls,.csv" @change="handleFileSelect" class="hidden" />
+            <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center mx-auto mb-3">📁</div>
+            <p class="text-sm font-medium mb-2">{{ importFile ? importFile.name : 'اسحب الملف أو اضغط للاختيار' }}</p>
+            <button @click="$refs.fileInput.click()" class="btn-secondary text-sm">اختيار ملف</button>
+          </div>
 
-        <div v-if="importPreview.length > 0" class="mt-6">
-          <p class="text-sm font-medium mb-2">معاينة ({{ importPreview.length }} صف):</p>
-          <div class="bg-gray-50 rounded-xl p-3 max-h-40 overflow-y-auto text-xs">
-            <div v-for="(row, idx) in importPreview.slice(0,5)" :key="idx" class="py-1 border-b border-gray-100 last:border-0">
-              {{ row.name || row['الاسم'] }} - {{ row.phone || row['الهاتف'] }}
+          <div v-if="importResult" class="space-y-4">
+            <div class="grid grid-cols-3 gap-3">
+              <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"><p class="text-2xl font-bold text-emerald-700">{{ importResult.successCount }}</p><p class="text-xs text-emerald-600">صحيحة - سيتم حفظها</p></div>
+              <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-center"><p class="text-2xl font-bold text-red-700">{{ importResult.errors.length }}</p><p class="text-xs text-red-600">خاطئة - لن تُحفظ</p></div>
+              <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center"><p class="text-2xl font-bold">{{ importResult.total }}</p><p class="text-xs text-gray-600">الإجمالي</p></div>
             </div>
+
+            <div v-if="importResult.errors.length > 0" class="card p-4 max-h-64 overflow-y-auto">
+              <h4 class="font-bold text-sm mb-3 text-red-700">تقرير الأخطاء التفصيلي:</h4>
+              <div class="space-y-2">
+                <div v-for="(err, idx) in importResult.errors" :key="idx" class="text-xs p-2 bg-red-50 rounded-lg flex gap-2">
+                  <span class="font-bold">صف {{ err.row }}:</span><span>{{ err.error }}</span>
+                </div>
+              </div>
+              <button @click="exportErrors" class="btn-secondary text-xs mt-3">📤 تصدير تقرير الأخطاء Excel</button>
+            </div>
+
+            <div v-if="importResult.successCount > 0" class="p-3 bg-emerald-50 rounded-xl text-xs text-emerald-700">✅ سيتم حفظ {{ importResult.successCount }} مشترك صحيح فقط. يمكنك تصحيح الأخطاء وإعادة رفع الملف.</div>
           </div>
         </div>
-
-        <div class="flex gap-3 mt-6">
-          <button @click="showImport = false" class="btn-secondary flex-1">إلغاء</button>
-          <button @click="handleImport" :disabled="!importPreview.length || importing" class="btn-primary flex-1">
-            <span v-if="importing">جاري الاستيراد...</span>
-            <span v-else>استيراد {{ importPreview.length }} مشترك</span>
-          </button>
-        </div>
-
-        <div class="mt-6 p-3 bg-blue-50 rounded-xl">
-          <p class="text-xs font-medium text-blue-800 mb-1">💡 قالب Excel:</p>
-          <button @click="downloadTemplate" class="text-xs text-blue-600 hover:underline">تحميل قالب فارغ</button>
+        <div class="p-6 border-t flex gap-3">
+          <button @click="showImport = false" class="btn-secondary flex-1">إغلاق</button>
+          <button v-if="importResult && importResult.successCount > 0" @click="confirmImport" class="btn-success flex-1">تأكيد حفظ {{ importResult.successCount }} مشترك</button>
         </div>
       </div>
     </div>
+
+    <ConfirmModal :show="showDelete" title="حذف المشترك" :message="`هل أنت متأكد من حذف ${selected?.name} (${selected?.accountNumber})؟ سيتم حذف جميع الإيصالات والخصومات المرتبطة.`" icon="🗑️" icon-bg="bg-red-100" confirm-text="حذف نهائي" confirm-class="btn-danger" @close="showDelete = false" @confirm="handleDelete" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useSubscribersStore } from '@/stores/subscribers'
-import { SUBSCRIPTION_TYPES, SUBSCRIBER_STATUS, AREAS } from '@/utils/constants'
-import { formatDateShort } from '@/utils/helpers'
+import { useHierarchyStore } from '@/stores/hierarchy'
+import { db, generateAccountNumber, calculateBalance } from '@/db'
+import { formatCurrency, getBalanceStatus, getBalanceStatusLabel } from '@/utils/helpers'
 import SearchInput from '@/components/common/SearchInput.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
-import SubscriberForm from '@/components/subscribers/SubscriberForm.vue'
 import { useToast } from 'vue-toastification'
 import { useExport } from '@/composables/useExport'
 
 const toast = useToast()
-const route = useRoute()
+const router = useRouter()
 const store = useSubscribersStore()
+const hierarchyStore = useHierarchyStore()
 const { exportToExcel, importFromExcel } = useExport()
 
-const subscriptionTypes = SUBSCRIPTION_TYPES
-const subscriberStatus = SUBSCRIBER_STATUS
-const areas = AREAS
-
 const showForm = ref(false)
-const showDelete = ref(false)
 const showImport = ref(false)
-const selectedSubscriber = ref(null)
+const showDelete = ref(false)
+const isEdit = ref(false)
+const selected = ref(null)
 const saving = ref(false)
 const currentPage = ref(1)
-const perPage = ref(10)
+const perPage = ref(15)
+
+const form = ref({ branchCode: '', subscriptionNumber: '', accountNumber: '', areaCode: '', name: '', idNumber: '', phone: '', openingBalance: 0 })
 
 const importFile = ref(null)
-const importPreview = ref([])
-const importing = ref(false)
+const importResult = ref(null)
+const importRawData = ref([])
 const fileInput = ref(null)
-
-onMounted(async () => {
-  await store.fetchSubscribers()
-  if (route.query.q) {
-    store.searchQuery = route.query.q
-  }
-})
+const balances = ref({})
 
 const filtered = computed(() => store.filteredSubscribers)
-const paginated = computed(() => {
-  const start = (currentPage.value - 1) * perPage.value
-  return filtered.value.slice(start, start + perPage.value)
-})
+const paginated = computed(() => { const start = (currentPage.value - 1) * perPage.value; return filtered.value.slice(start, start + perPage.value) })
 
 watch(() => filtered.value.length, () => currentPage.value = 1)
-watch(() => [store.searchQuery, store.statusFilter, store.typeFilter, store.areaFilter], () => currentPage.value = 1)
 
-const hasActiveFilters = computed(() => store.statusFilter || store.typeFilter || store.areaFilter)
+onMounted(async () => {
+  await Promise.all([store.fetchSubscribers(), hierarchyStore.fetchAll()])
+  await loadBalances()
+})
 
-const miniStats = computed(() => [
-  { label: 'الكل', value: store.stats.total, icon: '👥' },
-  { label: 'نشط', value: store.stats.active, icon: '✅' },
-  { label: 'غير نشط', value: store.stats.inactive, icon: '⏸️' },
-  { label: 'موقوف', value: store.stats.suspended, icon: '🚫' },
-  { label: 'انتظار', value: store.stats.pending, icon: '⏳' }
-])
+const loadBalances = async () => {
+  const all = await db.subscribers.toArray()
+  const receipts = await db.receipts.toArray()
+  const discounts = await db.discounts.toArray()
+  const map = {}
+  all.forEach(s => {
+    const rTotal = receipts.filter(r => r.accountNumber === s.accountNumber).reduce((sum, r) => sum + Number(r.amount), 0)
+    const dTotal = discounts.filter(d => d.accountNumber === s.accountNumber).reduce((sum, d) => sum + Number(d.discountAmount), 0)
+    map[s.accountNumber] = Number(s.openingBalance) + rTotal - dTotal
+  })
+  balances.value = map
+}
 
-const getStatusLabel = (v) => subscriberStatus.find(s => s.value === v)?.label || v
-const getStatusColor = (v) => subscriberStatus.find(s => s.value === v)?.color || 'badge-gray'
-const getTypeLabel = (v) => subscriptionTypes.find(t => t.value === v)?.label || v
-const getTypeColor = (v) => subscriptionTypes.find(t => t.value === v)?.color || 'badge-gray'
+const getBalanceColor = (bal) => {
+  if (bal == null) return ''
+  if (bal > 0) return 'text-red-600'
+  if (bal < 0) return 'text-emerald-600'
+  return 'text-gray-600'
+}
+const getBalanceLabel = (bal) => {
+  if (bal == null) return ''
+  if (bal > 0) return '(عليه)'
+  if (bal < 0) return '(له)'
+  return '(صفر)'
+}
 
-const clearFilters = () => {
-  store.statusFilter = ''
-  store.typeFilter = ''
-  store.areaFilter = ''
-  store.searchQuery = ''
+const updateAccountNumber = () => {
+  try {
+    if (form.value.branchCode && form.value.subscriptionNumber) {
+      form.value.accountNumber = generateAccountNumber(form.value.branchCode, form.value.subscriptionNumber)
+    }
+  } catch (e) {
+    form.value.accountNumber = ''
+  }
 }
 
 const openAdd = () => {
-  selectedSubscriber.value = null
+  isEdit.value = false
+  selected.value = null
+  form.value = { branchCode: '', subscriptionNumber: '', accountNumber: '', areaCode: '', name: '', idNumber: '', phone: '', openingBalance: 0 }
   showForm.value = true
 }
 
 const openEdit = (sub) => {
-  selectedSubscriber.value = sub
+  isEdit.value = true
+  selected.value = sub
+  const branchCode = sub.accountNumber.substring(0,2)
+  form.value = { branchCode, subscriptionNumber: sub.subscriptionNumber, accountNumber: sub.accountNumber, areaCode: sub.areaCode, name: sub.name, idNumber: sub.idNumber, phone: sub.phone, openingBalance: sub.openingBalance }
   showForm.value = true
 }
 
-const confirmDelete = (sub) => {
-  selectedSubscriber.value = sub
-  showDelete.value = true
-}
+const confirmDelete = (sub) => { selected.value = sub; showDelete.value = true }
 
-const handleSave = async (data) => {
+const handleSave = async () => {
   saving.value = true
   try {
-    if (selectedSubscriber.value) {
-      await store.updateSubscriber(selectedSubscriber.value.id, data)
-      toast.success('تم تحديث بيانات المشترك بنجاح')
-    } else {
-      await store.addSubscriber(data)
-      toast.success('تم إضافة المشترك بنجاح')
-    }
+    if (!form.value.accountNumber || form.value.accountNumber.length !== 9) throw new Error('رقم الحساب يجب أن يكون 9 أرقام')
+    const data = { accountNumber: form.value.accountNumber, subscriptionNumber: form.value.subscriptionNumber.toString(), areaCode: form.value.areaCode.toString(), name: form.value.name, idNumber: form.value.idNumber, phone: form.value.phone, openingBalance: Number(form.value.openingBalance) }
+    if (isEdit.value) await store.updateSubscriber(selected.value.accountNumber, data)
+    else await store.addSubscriber(data)
+    await loadBalances()
+    toast.success(isEdit.value ? 'تم التحديث' : 'تمت الإضافة')
     showForm.value = false
-  } catch (e) {
-    toast.error('حدث خطأ أثناء الحفظ')
-  } finally {
-    saving.value = false
-  }
+  } catch (e) { toast.error(e.message) } finally { saving.value = false }
 }
 
 const handleDelete = async () => {
-  try {
-    await store.deleteSubscriber(selectedSubscriber.value.id)
-    toast.success('تم حذف المشترك بنجاح')
-    showDelete.value = false
-  } catch (e) {
-    toast.error('فشل حذف المشترك')
-  }
+  try { await store.deleteSubscriber(selected.value.accountNumber); await loadBalances(); toast.success('تم الحذف'); showDelete.value = false } catch (e) { toast.error(e.message) }
 }
 
-const handleExport = () => {
-  const data = filtered.value.map(s => ({
-    'الاسم': s.name,
-    'الهاتف': s.phone,
-    'البريد': s.email,
-    'الرقم القومي': s.nationalId,
-    'المنطقة': s.area,
-    'العنوان': s.address,
-    'نوع الاشتراك': getTypeLabel(s.subscriptionType),
-    'الحالة': getStatusLabel(s.status),
-    'تاريخ الانضمام': formatDateShort(s.joinDate),
-    'ملاحظات': s.notes
-  }))
-  if (exportToExcel(data, `المشتركين-${new Date().toISOString().split('T')[0]}`, 'المشتركين')) {
-    toast.success('تم تصدير البيانات بنجاح')
-  }
+const downloadTemplate = () => {
+  const template = [{ 'رقم الحساب (9 أرقام)': '120045678', 'رقم الاشتراك': '45678', 'كود المنطقة (7 أرقام)': '3001234', 'اسم المشترك': 'أحمد محمد', 'رقم الهوية/السجل': '12345678901234', 'رقم الهاتف': '01012345678', 'الرصيد الافتتاحي': 0 }]
+  exportToExcel(template, 'قالب-المشتركين', 'قالب')
 }
 
 const handleFileSelect = async (e) => {
@@ -329,32 +253,27 @@ const handleFileSelect = async (e) => {
   if (!file) return
   importFile.value = file
   try {
-    const json = await importFromExcel(file)
-    importPreview.value = json
-  } catch (err) {
-    toast.error('فشل قراءة الملف')
-  }
+    const { data } = await importFromExcel(file)
+    importRawData.value = data
+    const result = await store.bulkImport(data)
+    importResult.value = result
+  } catch (err) { toast.error('فشل قراءة الملف') }
 }
 
-const handleImport = async () => {
-  importing.value = true
-  try {
-    const count = await store.bulkAddSubscribers(importPreview.value)
-    toast.success(`تم استيراد ${count} مشترك بنجاح`)
-    showImport.value = false
-    importPreview.value = []
-    importFile.value = null
-  } catch (e) {
-    toast.error('فشل الاستيراد')
-  } finally {
-    importing.value = false
-  }
+const confirmImport = async () => {
+  toast.success(`تم حفظ ${importResult.value.successCount} مشترك بنجاح`)
+  showImport.value = false
+  importResult.value = null
+  importFile.value = null
+  await loadBalances()
 }
 
-const downloadTemplate = () => {
-  const template = [
-    { 'الاسم': 'أحمد محمد', 'الهاتف': '01012345678', 'البريد': 'ahmed@example.com', 'الرقم القومي': '12345678901234', 'المنطقة': 'الجيزة', 'العنوان': 'شارع الهرم', 'نوع الاشتراك': 'سكني', 'الحالة': 'نشط', 'ملاحظات': '' }
-  ]
-  exportToExcel(template, 'قالب-المشتركين', 'قالب')
+const exportErrors = () => {
+  const data = importResult.value.errors.map(err => ({ 'رقم الصف': err.row, 'الخطأ': err.error, 'البيانات': JSON.stringify(err.data) }))
+  exportToExcel(data, `أخطاء-الاستيراد-${new Date().toISOString().split('T')[0]}`, 'أخطاء')
+}
+
+const viewStatement = (sub) => {
+  router.push({ path: '/reports', query: { account: sub.accountNumber } })
 }
 </script>

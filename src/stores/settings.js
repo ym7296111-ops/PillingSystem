@@ -14,78 +14,62 @@ export const useSettingsStore = defineStore('settings', () => {
       const obj = {}
       all.forEach(s => obj[s.key] = s.value)
       settings.value = obj
-    } catch (e) {
-      console.error(e)
-    } finally {
-      loading.value = false
-    }
+    } finally { loading.value = false }
   }
 
   const updateSetting = async (key, value) => {
-    try {
-      await db.settings.put({ key, value })
-      settings.value[key] = value
-    } catch (e) {
-      console.error(e)
-      throw e
-    }
+    await db.settings.put({ key, value })
+    settings.value[key] = value
   }
 
   const updateSettings = async (newSettings) => {
-    try {
-      const promises = Object.entries(newSettings).map(([k, v]) => db.settings.put({ key: k, value: v }))
-      await Promise.all(promises)
-      settings.value = { ...settings.value, ...newSettings }
-    } catch (e) {
-      console.error(e)
-      throw e
-    }
+    const puts = Object.entries(newSettings).map(([k,v]) => db.settings.put({ key: k, value: v }))
+    await Promise.all(puts)
+    settings.value = { ...settings.value, ...newSettings }
   }
 
   const exportDatabase = async () => {
-    const data = {
+    return {
+      sectors: await db.sectors.toArray(),
+      branches: await db.branches.toArray(),
+      groups: await db.groups.toArray(),
+      areas: await db.areas.toArray(),
       subscribers: await db.subscribers.toArray(),
-      bills: await db.bills.toArray(),
-      payments: await db.payments.toArray(),
+      receiptTypes: await db.receiptTypes.toArray(),
+      receipts: await db.receipts.toArray(),
+      discounts: await db.discounts.toArray(),
       settings: await db.settings.toArray(),
-      activities: await db.activities.toArray(),
       exportedAt: new Date().toISOString(),
       version: '1.0.0'
     }
-    return data
   }
 
   const importDatabase = async (data) => {
-    try {
-      if (data.subscribers) await db.subscribers.bulkPut(data.subscribers)
-      if (data.bills) await db.bills.bulkPut(data.bills)
-      if (data.payments) await db.payments.bulkPut(data.payments)
-      if (data.settings) await db.settings.bulkPut(data.settings)
-      if (data.activities) await db.activities.bulkPut(data.activities)
-      await fetchSettings()
-    } catch (e) {
-      console.error(e)
-      throw e
-    }
+    if (data.sectors) await db.sectors.bulkPut(data.sectors)
+    if (data.branches) await db.branches.bulkPut(data.branches)
+    if (data.groups) await db.groups.bulkPut(data.groups)
+    if (data.areas) await db.areas.bulkPut(data.areas)
+    if (data.subscribers) await db.subscribers.bulkPut(data.subscribers)
+    if (data.receiptTypes) await db.receiptTypes.bulkPut(data.receiptTypes)
+    if (data.receipts) await db.receipts.bulkPut(data.receipts)
+    if (data.discounts) await db.discounts.bulkPut(data.discounts)
+    if (data.settings) await db.settings.bulkPut(data.settings)
+    await fetchSettings()
   }
 
   const clearDatabase = async () => {
+    await db.sectors.clear()
+    await db.branches.clear()
+    await db.groups.clear()
+    await db.areas.clear()
     await db.subscribers.clear()
-    await db.bills.clear()
-    await db.payments.clear()
-    await db.activities.clear()
+    await db.receiptTypes.clear()
+    await db.receipts.clear()
+    await db.discounts.clear()
+    await db.settings.clear()
     await seedDefaultSettings()
     await fetchSettings()
   }
 
-  return {
-    settings,
-    loading,
-    fetchSettings,
-    updateSetting,
-    updateSettings,
-    exportDatabase,
-    importDatabase,
-    clearDatabase
-  }
+  return { settings, loading, fetchSettings, updateSetting, updateSettings, exportDatabase, importDatabase, clearDatabase }
 })

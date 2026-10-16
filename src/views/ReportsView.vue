@@ -2,315 +2,317 @@
   <div class="space-y-6 animate-fadeIn">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">📈</div>
-      <div>
-        <h1 class="text-xl font-bold">التقارير والتحليلات</h1>
-        <p class="text-sm text-gray-500">تحليل شامل لأداء النظام والإيرادات</p>
-      </div>
+      <div><h1 class="text-xl font-bold">التقارير</h1><p class="text-sm text-gray-500">كشف حساب، إيصالات، خصومات، بدون إيصالات، أرصدة</p></div>
     </div>
 
-    <!-- Date Range -->
-    <div class="card p-4 flex flex-wrap gap-3 items-center">
-      <span class="text-sm font-medium">الفترة:</span>
-      <select v-model="period" class="input text-sm w-auto">
-        <option value="6m">آخر 6 أشهر</option>
-        <option value="12m">آخر 12 شهر</option>
-        <option value="thisYear">هذا العام</option>
-        <option value="all">كل الفترات</option>
-      </select>
-      <div class="mr-auto flex gap-2">
-        <button @click="exportReport" class="btn-secondary text-sm">📤 تصدير التقرير</button>
-        <button @click="printReport" class="btn-ghost text-sm">🖨️ طباعة</button>
-      </div>
+    <div class="card p-2 flex gap-2 overflow-x-auto">
+      <button v-for="tab in reportTabs" :key="tab.key" @click="activeTab = tab.key" :class="['px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap', activeTab === tab.key ? 'bg-primary-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100']">{{ tab.icon }} {{ tab.label }}</button>
     </div>
 
-    <!-- Key Metrics -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <!-- Subscriber Statement -->
+    <div v-if="activeTab === 'statement'" class="space-y-4">
       <div class="card p-5">
-        <p class="text-xs text-gray-500">إجمالي الإيرادات المحتملة</p>
-        <p class="text-2xl font-bold mt-1">{{ formatCurrency(totalPotential) }}</p>
-        <p class="text-xs text-gray-400 mt-2">{{ billsStore.bills.length }} فاتورة</p>
+        <h3 class="font-bold mb-4">كشف حساب المشترك</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select v-model="statementAccount" class="input text-sm"><option value="">اختر المشترك</option><option v-for="s in subscribersStore.subscribers" :key="s.accountNumber" :value="s.accountNumber">{{ s.accountNumber }} - {{ s.name }}</option></select>
+          <input v-model="statementFrom" type="date" class="input text-sm" />
+          <input v-model="statementTo" type="date" class="input text-sm" />
+        </div>
+        <div class="mt-4 flex gap-2"><button @click="generateStatement" class="btn-primary text-sm">عرض كشف الحساب</button><button @click="exportStatement" class="btn-secondary text-sm">📤 تصدير Excel</button></div>
       </div>
-      <div class="card p-5 border-emerald-100">
-        <p class="text-xs text-emerald-600">الإيرادات المحصلة</p>
-        <p class="text-2xl font-bold text-emerald-700 mt-1">{{ formatCurrency(totalCollected) }}</p>
-        <p class="text-xs text-emerald-600 mt-2">{{ collectionRate }}% معدل التحصيل</p>
+
+      <div v-if="statementData" class="card p-6">
+        <div class="flex justify-between items-start mb-6">
+          <div><h4 class="font-bold text-lg">{{ statementData.subscriber?.name }}</h4><p class="text-sm text-gray-500 font-mono">{{ statementData.subscriber?.accountNumber }} - {{ statementData.subscriber?.areaCode }}</p></div>
+          <div class="text-left text-sm"><p>الرصيد الافتتاحي (1/7): <span class="font-bold">{{ formatCurrency(statementData.opening) }}</span></p><p>الرصيد الحالي: <span class="font-bold" :class="statementData.current > 0 ? 'text-red-600' : 'text-emerald-600'">{{ formatCurrency(statementData.current) }} {{ statementData.current > 0 ? '(عليه)' : statementData.current < 0 ? '(له)' : '' }}</span></p></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h5 class="font-bold text-sm mb-3">تفاصيل الإيصالات (المستحقات) - {{ statementData.receipts.length }}</h5>
+            <div class="border rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+              <table class="w-full text-xs"><thead class="bg-gray-50"><tr><th class="px-3 py-2 text-right">التاريخ</th><th class="px-3 py-2 text-right">النوع</th><th class="px-3 py-2 text-right">المبلغ</th></tr></thead><tbody class="divide-y"><tr v-for="r in statementData.receipts" :key="r.id"><td class="px-3 py-2">{{ formatDateShort(r.date) }}</td><td class="px-3 py-2">{{ getTypeName(r.typeId) }}</td><td class="px-3 py-2 font-bold">{{ formatCurrency(r.amount) }}</td></tr></tbody></table>
+            </div>
+            <p class="text-sm font-bold mt-2">الإجمالي: {{ formatCurrency(statementData.totalReceipts) }}</p>
+          </div>
+          <div>
+            <h5 class="font-bold text-sm mb-3">تفاصيل الخصومات - {{ statementData.discounts.length }}</h5>
+            <div class="border rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+              <table class="w-full text-xs"><thead class="bg-gray-50"><tr><th class="px-3 py-2 text-right">الشهر</th><th class="px-3 py-2 text-right">الخصم</th><th class="px-3 py-2 text-right">الدفعة</th></tr></thead><tbody class="divide-y"><tr v-for="d in statementData.discounts" :key="d.id"><td class="px-3 py-2">{{ d.fiscalMonth }}</td><td class="px-3 py-2 font-bold text-emerald-700">{{ formatCurrency(d.discountAmount) }}</td><td class="px-3 py-2 font-mono text-[11px]">{{ d.importBatch }}</td></tr></tbody></table>
+            </div>
+            <p class="text-sm font-bold mt-2">الإجمالي: {{ formatCurrency(statementData.totalDiscounts) }}</p>
+          </div>
+        </div>
+
+        <div class="mt-6 p-4 bg-primary-50 rounded-xl border border-primary-100 flex justify-between items-center">
+          <span class="font-bold">المعادلة: افتتاحي + إيصالات - خصومات = حالي</span>
+          <span class="font-bold">{{ formatCurrency(statementData.opening) }} + {{ formatCurrency(statementData.totalReceipts) }} - {{ formatCurrency(statementData.totalDiscounts) }} = {{ formatCurrency(statementData.current) }}</span>
+        </div>
       </div>
-      <div class="card p-5 border-red-100">
-        <p class="text-xs text-red-600">المستحقات المتأخرة</p>
-        <p class="text-2xl font-bold text-red-700 mt-1">{{ formatCurrency(totalOverdue) }}</p>
-        <p class="text-xs text-red-500 mt-2">{{ overdueCount }} فاتورة</p>
-      </div>
+    </div>
+
+    <!-- Receipts Report -->
+    <div v-if="activeTab === 'receipts'" class="space-y-4">
       <div class="card p-5">
-        <p class="text-xs text-gray-500">متوسط قيمة الفاتورة</p>
-        <p class="text-2xl font-bold mt-1">{{ formatCurrency(avgBill) }}</p>
-        <p class="text-xs text-gray-400 mt-2">لكل مشترك {{ formatCurrency(avgPerSubscriber) }}</p>
+        <h3 class="font-bold mb-4">تقرير الإيصالات التفصيلي والإجمالي</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <select v-model="receiptsReport.groupBy" class="input text-sm"><option value="">بدون تجميع</option><option value="branch">تجميع حسب الفرع</option><option value="group">حسب المجموعة</option><option value="area">حسب المنطقة</option><option value="type">حسب نوع الإيصال</option></select>
+          <input v-model="receiptsReport.dateFrom" type="date" class="input text-sm" />
+          <input v-model="receiptsReport.dateTo" type="date" class="input text-sm" />
+          <button @click="exportReceiptsReport" class="btn-secondary text-sm">📤 تصدير</button>
+        </div>
+      </div>
+
+      <div v-if="receiptsReport.groupBy" class="card p-6">
+        <h4 class="font-bold mb-4">مجمع حسب {{ receiptsReport.groupBy }}</h4>
+        <div class="space-y-2">
+          <div v-for="(group, key) in groupedReceipts" :key="key" class="flex justify-between p-3 bg-gray-50 rounded-xl"><span class="font-medium">{{ key }}</span><span class="font-bold">{{ group.count }} إيصال - {{ formatCurrency(group.total) }}</span></div>
+        </div>
+      </div>
+
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm"><thead class="bg-gray-50 text-xs text-gray-500"><tr><th class="px-4 py-3 text-right">رقم الحساب</th><th class="px-4 py-3 text-right">التاريخ</th><th class="px-4 py-3 text-right">النوع</th><th class="px-4 py-3 text-right">المبلغ</th><th class="px-4 py-3 text-right">السنة المالية</th></tr></thead><tbody class="divide-y"><tr v-for="r in filteredReceiptsForReport" :key="r.id"><td class="px-4 py-3 font-mono">{{ r.accountNumber }}</td><td class="px-4 py-3">{{ formatDateShort(r.date) }}</td><td class="px-4 py-3">{{ getTypeName(r.typeId) }}</td><td class="px-4 py-3 font-bold">{{ formatCurrency(r.amount) }}</td><td class="px-4 py-3">{{ r.fiscalYear }}</td></tr></tbody></table>
+        </div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <RevenueChart :data="revenueData" />
-      
+    <!-- Discounts Report -->
+    <div v-if="activeTab === 'discounts'" class="space-y-4">
+      <div class="card p-5">
+        <h3 class="font-bold mb-4">تقرير الخصومات المستوردة</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select v-model="discountsReport.month" class="input text-sm"><option value="">جميع الشهور</option><option v-for="m in fiscalMonths" :key="m" :value="m">{{ m }}</option></select>
+          <select v-model="discountsReport.group" class="input text-sm"><option value="">جميع المجموعات</option><option v-for="g in hierarchyStore.groups" :key="g.id" :value="g.code">{{ g.code }} - {{ g.name }}</option></select>
+          <button @click="exportDiscountsReport" class="btn-secondary text-sm">📤 تصدير</button>
+        </div>
+      </div>
       <div class="card p-6">
-        <h3 class="font-bold mb-1">توزيع طرق الدفع</h3>
-        <p class="text-sm text-gray-500 mb-6">تحليل طرق الدفع المستخدمة</p>
-        <div class="h-64">
-          <canvas ref="paymentMethodChart"></canvas>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="bg-emerald-50 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-emerald-700">{{ filteredDiscountsForReport.length }}</p><p class="text-xs">عدد الخصومات</p></div>
+          <div class="bg-blue-50 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-blue-700">{{ formatCurrency(filteredDiscountsForReport.reduce((s,d) => s + Number(d.discountAmount), 0)) }}</p><p class="text-xs">إجمالي الخصومات</p></div>
+          <div class="bg-purple-50 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-purple-700">{{ discountsStore.batches.length }}</p><p class="text-xs">عدد الدفعات</p></div>
         </div>
-        <div class="mt-6 space-y-2">
-          <div v-for="item in paymentMethodLegend" :key="item.label" class="flex items-center justify-between text-sm">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full" :style="{ background: item.color }"></span>
-              <span>{{ item.label }}</span>
-            </div>
-            <span class="font-bold">{{ item.count }} ({{ item.percent }}%)</span>
-          </div>
-        </div>
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-50 text-xs"><tr><th class="px-3 py-2 text-right">المنطقة</th><th class="px-3 py-2 text-right">عدد الخصومات</th><th class="px-3 py-2 text-right">إجمالي الخصم</th></tr></thead><tbody class="divide-y"><tr v-for="(val, key) in discountsGroupedByArea" :key="key"><td class="px-3 py-2 font-mono">{{ key }}</td><td class="px-3 py-2">{{ val.count }}</td><td class="px-3 py-2 font-bold">{{ formatCurrency(val.total) }}</td></tr></tbody></table></div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <StatusChart title="حالة الفواتير" subtitle="توزيع الفواتير حسب الحالة" :labels="billStatusLabels" :values="billStatusValues" :colors="['#10b981','#ef4444','#f59e0b','#6b7280']" :legend="billStatusLegend" />
-      <StatusChart title="أنواع الاشتراكات" subtitle="توزيع المشتركين حسب النوع" :labels="typeLabels" :values="typeValues" :colors="['#3b82f6','#8b5cf6','#f97316','#10b981']" :legend="typeLegend" />
-      <StatusChart title="توزيع المناطق" subtitle="أكثر المناطق اشتراكاً" :labels="areaLabels.slice(0,4)" :values="areaValues.slice(0,4)" :colors="['#06b6d4','#3b82f6','#8b5cf6','#ec4899']" :legend="areaLegend.slice(0,4)" />
-    </div>
-
-    <!-- Top Subscribers -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- No Receipt Report -->
+    <div v-if="activeTab === 'noReceipt'" class="space-y-4">
+      <div class="card p-5">
+        <h3 class="font-bold mb-4">تقرير المشتركين بدون إيصالات</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <select v-model="noReceiptReport.month" class="input text-sm"><option value="">اختر الشهر</option><option v-for="m in 12" :key="m" :value="m">{{ new Date(0, m-1).toLocaleDateString('ar-EG', { month: 'long' }) }}</option></select>
+          <select v-model="noReceiptReport.branch" class="input text-sm"><option value="">جميع الفروع</option><option v-for="b in hierarchyStore.branches" :key="b.id" :value="b.code">{{ b.code }} - {{ b.name }}</option></select>
+          <select v-model="noReceiptReport.group" class="input text-sm"><option value="">جميع المجموعات</option><option v-for="g in hierarchyStore.groups" :key="g.id" :value="g.code">{{ g.code }} - {{ g.name }}</option></select>
+          <button @click="exportNoReceiptReport" class="btn-secondary text-sm">📤 تصدير Excel</button>
+        </div>
+      </div>
       <div class="card p-6">
-        <h3 class="font-bold mb-4">أكثر المشتركين إنفاقاً</h3>
-        <div class="space-y-3">
-          <div v-for="(item, idx) in topSpenders" :key="item.id" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50">
-            <span class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">{{ idx+1 }}</span>
-            <div class="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center font-bold text-primary-700">{{ item.name.charAt(0) }}</div>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-sm truncate">{{ item.name }}</p>
-              <p class="text-xs text-gray-500">{{ item.billsCount }} فاتورة</p>
-            </div>
-            <p class="font-bold text-sm">{{ formatCurrency(item.total) }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="card p-6">
-        <h3 class="font-bold mb-4">الفواتير المتأخرة - تحتاج متابعة</h3>
-        <div class="space-y-3 max-h-96 overflow-y-auto">
-          <div v-for="bill in overdueBills.slice(0,8)" :key="bill.id" class="flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-100">
-            <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">⚠️</div>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-sm truncate">{{ getSubscriberName(bill.subscriberId) }}</p>
-              <p class="text-xs text-gray-600">{{ bill.billNumber }} • متأخرة {{ daysOverdue(bill.dueDate) }} يوم</p>
-            </div>
-            <p class="font-bold text-sm text-red-700">{{ formatCurrency(bill.totalAmount) }}</p>
-          </div>
-          <div v-if="overdueBills.length === 0" class="text-center py-8 text-gray-400 text-sm">لا توجد فواتير متأخرة 🎉</div>
-        </div>
+        <h4 class="font-bold mb-4">المشتركين بدون إيصالات في شهر {{ noReceiptReport.month ? new Date(0, noReceiptReport.month-1).toLocaleDateString('ar-EG', { month: 'long' }) : 'غير محدد' }} - {{ noReceiptSubscribers.length }} مشترك</h4>
+        <div class="overflow-x-auto max-h-96"><table class="w-full text-sm"><thead class="bg-gray-50 text-xs"><tr><th class="px-3 py-2 text-right">رقم الحساب</th><th class="px-3 py-2 text-right">الاسم</th><th class="px-3 py-2 text-right">المنطقة</th><th class="px-3 py-2 text-right">الرصيد</th></tr></thead><tbody class="divide-y"><tr v-for="s in noReceiptSubscribers" :key="s.accountNumber"><td class="px-3 py-2 font-mono font-bold">{{ s.accountNumber }}</td><td class="px-3 py-2">{{ s.name }}</td><td class="px-3 py-2 font-mono">{{ s.areaCode }}</td><td class="px-3 py-2 font-bold">{{ formatCurrency(balances[s.accountNumber]) }}</td></tr></tbody></table></div>
       </div>
     </div>
 
-    <!-- Monthly Table -->
-    <div class="card p-6">
-      <h3 class="font-bold mb-4">التقرير الشهري التفصيلي</h3>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-xs text-gray-500">
-            <tr>
-              <th class="px-4 py-3 text-right">الشهر</th>
-              <th class="px-4 py-3 text-right">عدد الفواتير</th>
-              <th class="px-4 py-3 text-right">إجمالي المبلغ</th>
-              <th class="px-4 py-3 text-right">المحصل</th>
-              <th class="px-4 py-3 text-right">المستحق</th>
-              <th class="px-4 py-3 text-right">معدل التحصيل</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y">
-            <tr v-for="row in monthlyReport" :key="row.month" class="hover:bg-gray-50">
-              <td class="px-4 py-3 font-medium">{{ row.month }}</td>
-              <td class="px-4 py-3">{{ row.count }}</td>
-              <td class="px-4 py-3 font-bold">{{ formatCurrency(row.total) }}</td>
-              <td class="px-4 py-3 text-emerald-700 font-medium">{{ formatCurrency(row.collected) }}</td>
-              <td class="px-4 py-3 text-red-600">{{ formatCurrency(row.total - row.collected) }}</td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div class="h-full bg-emerald-500" :style="{ width: row.rate + '%' }"></div>
-                  </div>
-                  <span class="text-xs">{{ row.rate }}%</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- Balances Report -->
+    <div v-if="activeTab === 'balances'" class="space-y-4">
+      <div class="card p-5">
+        <h3 class="font-bold mb-4">تقرير الأرصدة</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <select v-model="balancesReport.branch" class="input text-sm"><option value="">جميع الفروع</option><option v-for="b in hierarchyStore.branches" :key="b.id" :value="b.code">{{ b.code }} - {{ b.name }}</option></select>
+          <select v-model="balancesReport.status" class="input text-sm"><option value="">جميع الحالات</option><option value="positive">عليه</option><option value="negative">له</option><option value="zero">صفر</option></select>
+          <div class="flex gap-2"><input v-model.number="balancesReport.min" type="number" class="input text-sm" placeholder="من مبلغ" /><input v-model.number="balancesReport.max" type="number" class="input text-sm" placeholder="إلى مبلغ" /></div>
+          <button @click="exportBalancesReport" class="btn-secondary text-sm">📤 تصدير</button>
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-50 text-xs"><tr><th class="px-4 py-3 text-right">رقم الحساب</th><th class="px-4 py-3 text-right">الاسم</th><th class="px-4 py-3 text-right">افتتاحي</th><th class="px-4 py-3 text-right">إيصالات</th><th class="px-4 py-3 text-right">خصومات</th><th class="px-4 py-3 text-right">حالي</th><th class="px-4 py-3 text-right">الحالة</th></tr></thead><tbody class="divide-y"><tr v-for="s in filteredBalances" :key="s.accountNumber"><td class="px-4 py-3 font-mono font-bold">{{ s.accountNumber }}</td><td class="px-4 py-3">{{ s.name }}</td><td class="px-4 py-3">{{ formatCurrency(s.openingBalance) }}</td><td class="px-4 py-3">{{ formatCurrency(s.totalReceipts) }}</td><td class="px-4 py-3 text-emerald-700">{{ formatCurrency(s.totalDiscounts) }}</td><td class="px-4 py-3 font-bold" :class="s.current > 0 ? 'text-red-600' : s.current < 0 ? 'text-emerald-600' : ''">{{ formatCurrency(s.current) }}</td><td class="px-4 py-3"><span :class="['badge text-xs', s.current > 0 ? 'badge-danger' : s.current < 0 ? 'badge-success' : 'badge-gray']">{{ s.current > 0 ? 'عليه' : s.current < 0 ? 'له' : 'صفر' }}</span></td></tr></tbody></table></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useHierarchyStore } from '@/stores/hierarchy'
 import { useSubscribersStore } from '@/stores/subscribers'
-import { useBillsStore } from '@/stores/bills'
-import { usePaymentsStore } from '@/stores/payments'
-import { formatCurrency } from '@/utils/helpers'
-import { MONTHS_AR, BILL_STATUS, SUBSCRIPTION_TYPES, PAYMENT_METHODS } from '@/utils/constants'
-import RevenueChart from '@/components/dashboard/RevenueChart.vue'
-import StatusChart from '@/components/dashboard/StatusChart.vue'
-import { Chart, registerables } from 'chart.js'
-Chart.register(...registerables)
+import { useReceiptsStore } from '@/stores/receipts'
+import { useReceiptTypesStore } from '@/stores/receiptTypes'
+import { useDiscountsStore } from '@/stores/discounts'
+import { db } from '@/db'
+import { formatCurrency, formatDateShort } from '@/utils/helpers'
+import { useExport } from '@/composables/useExport'
 
+const route = useRoute()
+const hierarchyStore = useHierarchyStore()
 const subscribersStore = useSubscribersStore()
-const billsStore = useBillsStore()
-const paymentsStore = usePaymentsStore()
+const receiptsStore = useReceiptsStore()
+const receiptTypesStore = useReceiptTypesStore()
+const discountsStore = useDiscountsStore()
+const { exportToExcel } = useExport()
 
-const period = ref('6m')
-const paymentMethodChart = ref(null)
-let pmChartInstance = null
+const activeTab = ref('statement')
+const reportTabs = [
+  { key: 'statement', label: 'كشف حساب', icon: '📄' },
+  { key: 'receipts', label: 'الإيصالات', icon: '🧾' },
+  { key: 'discounts', label: 'الخصومات', icon: '💸' },
+  { key: 'noReceipt', label: 'بدون إيصالات', icon: '⚠️' },
+  { key: 'balances', label: 'الأرصدة', icon: '💰' }
+]
+
+const statementAccount = ref(route.query.account || '')
+const statementFrom = ref('')
+const statementTo = ref('')
+const statementData = ref(null)
+
+const receiptsReport = ref({ groupBy: '', dateFrom: '', dateTo: '' })
+const discountsReport = ref({ month: '', group: '' })
+const noReceiptReport = ref({ month: new Date().getMonth() + 1, branch: '', group: '' })
+const balancesReport = ref({ branch: '', status: '', min: '', max: '' })
+
+const balances = ref({})
+const balancesDetailed = ref([])
+
+const fiscalMonths = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
 
 onMounted(async () => {
-  await Promise.all([
-    subscribersStore.fetchSubscribers(),
-    billsStore.fetchBills(),
-    paymentsStore.fetchPayments()
-  ])
-  renderPaymentMethodChart()
+  await Promise.all([hierarchyStore.fetchAll(), subscribersStore.fetchSubscribers(), receiptsStore.fetchReceipts(), receiptTypesStore.fetchTypes(), discountsStore.fetchDiscounts()])
+  await loadBalances()
+  if (statementAccount.value) generateStatement()
 })
 
-watch(() => paymentsStore.payments.length, renderPaymentMethodChart)
+const loadBalances = async () => {
+  const subs = await db.subscribers.toArray()
+  const receipts = await db.receipts.toArray()
+  const discounts = await db.discounts.toArray()
+  const map = {}
+  const detailed = []
+  subs.forEach(s => {
+    const rList = receipts.filter(r => r.accountNumber === s.accountNumber)
+    const dList = discounts.filter(d => d.accountNumber === s.accountNumber)
+    const rTotal = rList.reduce((sum, r) => sum + Number(r.amount), 0)
+    const dTotal = dList.reduce((sum, d) => sum + Number(d.discountAmount), 0)
+    const current = Number(s.openingBalance) + rTotal - dTotal
+    map[s.accountNumber] = current
+    detailed.push({ ...s, totalReceipts: rTotal, totalDiscounts: dTotal, current })
+  })
+  balances.value = map
+  balancesDetailed.value = detailed
+}
 
-const totalPotential = computed(() => billsStore.bills.reduce((s, b) => s + Number(b.totalAmount), 0))
-const totalCollected = computed(() => paymentsStore.payments.reduce((s, p) => s + Number(p.amount), 0))
-const overdueBills = computed(() => billsStore.bills.filter(b => b.status !== 'paid' && new Date(b.dueDate) < new Date()))
-const totalOverdue = computed(() => overdueBills.value.reduce((s, b) => s + Number(b.totalAmount), 0))
-const overdueCount = computed(() => overdueBills.value.length)
-const collectionRate = computed(() => totalPotential.value ? Math.round((totalCollected.value / totalPotential.value) * 100) : 0)
-const avgBill = computed(() => billsStore.bills.length ? totalPotential.value / billsStore.bills.length : 0)
-const avgPerSubscriber = computed(() => subscribersStore.subscribers.length ? totalPotential.value / subscribersStore.subscribers.length : 0)
+const getTypeName = (id) => receiptTypesStore.types.find(t => t.id === id)?.name || '-'
 
-const revenueData = computed(() => {
-  const months = []
-  const paid = []
-  const unpaid = []
-  const now = new Date()
-  const count = period.value === '12m' ? 12 : period.value === 'thisYear' ? now.getMonth() + 1 : 6
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    months.push(MONTHS_AR[d.getMonth()])
-    const monthBills = billsStore.bills.filter(b => {
-      const bd = new Date(b.issueDate)
-      return bd.getMonth() === d.getMonth() && bd.getFullYear() === d.getFullYear()
+const generateStatement = async () => {
+  if (!statementAccount.value) return
+  const sub = subscribersStore.subscribers.find(s => s.accountNumber === statementAccount.value)
+  if (!sub) return
+  let receipts = receiptsStore.receipts.filter(r => r.accountNumber === statementAccount.value)
+  let discounts = discountsStore.discounts.filter(d => d.accountNumber === statementAccount.value)
+  if (statementFrom.value) receipts = receipts.filter(r => new Date(r.date) >= new Date(statementFrom.value))
+  if (statementTo.value) receipts = receipts.filter(r => new Date(r.date) <= new Date(statementTo.value))
+  const totalReceipts = receipts.reduce((s, r) => s + Number(r.amount), 0)
+  const totalDiscounts = discounts.reduce((s, d) => s + Number(d.discountAmount), 0)
+  const opening = Number(sub.openingBalance)
+  const current = opening + totalReceipts - totalDiscounts
+  statementData.value = { subscriber: sub, opening, totalReceipts, totalDiscounts, current, receipts, discounts }
+}
+
+const exportStatement = () => {
+  if (!statementData.value) return
+  const data = [
+    { 'البيان': 'الرصيد الافتتاحي', 'المبلغ': statementData.value.opening },
+    ...statementData.value.receipts.map(r => ({ 'البيان': `إيصال ${getTypeName(r.typeId)} - ${formatDateShort(r.date)}`, 'المبلغ': r.amount })),
+    ...statementData.value.discounts.map(d => ({ 'البيان': `خصم ${d.fiscalMonth}`, 'المبلغ': -d.discountAmount })),
+    { 'البيان': 'الرصيد الحالي', 'المبلغ': statementData.value.current }
+  ]
+  exportToExcel(data, `كشف-حساب-${statementAccount.value}`, 'كشف حساب')
+}
+
+const filteredReceiptsForReport = computed(() => {
+  let result = [...receiptsStore.receipts]
+  if (receiptsReport.value.dateFrom) result = result.filter(r => new Date(r.date) >= new Date(receiptsReport.value.dateFrom))
+  if (receiptsReport.value.dateTo) result = result.filter(r => new Date(r.date) <= new Date(receiptsReport.value.dateTo))
+  return result
+})
+
+const groupedReceipts = computed(() => {
+  if (!receiptsReport.value.groupBy) return {}
+  const groups = {}
+  filteredReceiptsForReport.value.forEach(r => {
+    let key = 'غير معروف'
+    if (receiptsReport.value.groupBy === 'branch') key = `فرع ${r.accountNumber.substring(0,2)}`
+    if (receiptsReport.value.groupBy === 'type') key = getTypeName(r.typeId)
+    if (receiptsReport.value.groupBy === 'area') { const sub = subscribersStore.subscribers.find(s => s.accountNumber === r.accountNumber); key = sub?.areaCode || 'غير معروف' }
+    if (receiptsReport.value.groupBy === 'group') { const sub = subscribersStore.subscribers.find(s => s.accountNumber === r.accountNumber); key = sub?.areaCode ? `مجموعة ${sub.areaCode.charAt(0)}` : 'غير معروف' }
+    if (!groups[key]) groups[key] = { count: 0, total: 0 }
+    groups[key].count++
+    groups[key].total += Number(r.amount)
+  })
+  return groups
+})
+
+const exportReceiptsReport = () => {
+  const data = filteredReceiptsForReport.value.map(r => ({ 'رقم الحساب': r.accountNumber, 'التاريخ': formatDateShort(r.date), 'النوع': getTypeName(r.typeId), 'المبلغ': r.amount, 'السنة المالية': r.fiscalYear }))
+  exportToExcel(data, `تقرير-الإيصالات-${new Date().toISOString().split('T')[0]}`, 'إيصالات')
+}
+
+const filteredDiscountsForReport = computed(() => {
+  let result = [...discountsStore.discounts]
+  if (discountsReport.value.month) result = result.filter(d => d.fiscalMonth?.includes(discountsReport.value.month))
+  if (discountsReport.value.group) result = result.filter(d => d.areaCode?.startsWith(discountsReport.value.group))
+  return result
+})
+
+const discountsGroupedByArea = computed(() => {
+  const groups = {}
+  filteredDiscountsForReport.value.forEach(d => {
+    if (!groups[d.areaCode]) groups[d.areaCode] = { count: 0, total: 0 }
+    groups[d.areaCode].count++
+    groups[d.areaCode].total += Number(d.discountAmount)
+  })
+  return groups
+})
+
+const exportDiscountsReport = () => {
+  const data = filteredDiscountsForReport.value.map(d => ({ 'المنطقة': d.areaCode, 'رقم الحساب': d.accountNumber, 'الخصم': d.discountAmount, 'المتبقي': d.remainingAmount, 'الإجمالي': d.invoiceTotal, 'الشهر': d.fiscalMonth, 'الدفعة': d.importBatch }))
+  exportToExcel(data, `تقرير-الخصومات-${new Date().toISOString().split('T')[0]}`, 'خصومات')
+}
+
+const noReceiptSubscribers = computed(() => {
+  if (!noReceiptReport.value.month) return []
+  const month = Number(noReceiptReport.value.month)
+  const receiptsInMonth = receiptsStore.receipts.filter(r => new Date(r.date).getMonth() + 1 === month)
+  const accountsWithReceipt = new Set(receiptsInMonth.map(r => r.accountNumber))
+  let result = subscribersStore.subscribers.filter(s => !accountsWithReceipt.has(s.accountNumber))
+  if (noReceiptReport.value.branch) result = result.filter(s => s.accountNumber.startsWith(noReceiptReport.value.branch))
+  if (noReceiptReport.value.group) result = result.filter(s => s.areaCode?.startsWith(noReceiptReport.value.group))
+  return result
+})
+
+const exportNoReceiptReport = () => {
+  const data = noReceiptSubscribers.value.map(s => ({ 'رقم الحساب': s.accountNumber, 'الاسم': s.name, 'المنطقة': s.areaCode, 'الرصيد': balances.value[s.accountNumber] }))
+  exportToExcel(data, `بدون-إيصالات-شهر-${noReceiptReport.value.month}`, 'بدون إيصالات')
+}
+
+const filteredBalances = computed(() => {
+  let result = [...balancesDetailed.value]
+  if (balancesReport.value.branch) result = result.filter(s => s.accountNumber.startsWith(balancesReport.value.branch))
+  if (balancesReport.value.status) {
+    result = result.filter(s => {
+      if (balancesReport.value.status === 'positive') return s.current > 0
+      if (balancesReport.value.status === 'negative') return s.current < 0
+      if (balancesReport.value.status === 'zero') return s.current === 0
+      return true
     })
-    const monthPayments = paymentsStore.payments.filter(p => {
-      const pd = new Date(p.paymentDate)
-      return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear()
-    })
-    paid.push(monthPayments.reduce((s, p) => s + Number(p.amount), 0))
-    unpaid.push(monthBills.reduce((s, b) => s + Number(b.totalAmount), 0) - monthPayments.reduce((s, p) => s + Number(p.amount), 0))
   }
-  return { months, paid, unpaid: unpaid.map(v => Math.max(0, v)) }
+  if (balancesReport.value.min !== '') result = result.filter(s => s.current >= Number(balancesReport.value.min))
+  if (balancesReport.value.max !== '') result = result.filter(s => s.current <= Number(balancesReport.value.max))
+  return result
 })
 
-const billStatusLabels = computed(() => BILL_STATUS.map(s => s.label))
-const billStatusValues = computed(() => {
-  const overdue = overdueCount.value
-  return BILL_STATUS.map(s => {
-    if (s.value === 'overdue') return overdue
-    return billsStore.bills.filter(b => b.status === s.value && !(s.value !== 'paid' && new Date(b.dueDate) < new Date())).length
-  })
-})
-const billStatusLegend = computed(() => BILL_STATUS.map((s, i) => ({ label: s.label, value: billStatusValues.value[i], color: ['#10b981','#ef4444','#f59e0b','#6b7280'][i] })))
-
-const typeLabels = computed(() => SUBSCRIPTION_TYPES.map(t => t.label))
-const typeValues = computed(() => SUBSCRIPTION_TYPES.map(t => subscribersStore.subscribers.filter(s => s.subscriptionType === t.value).length))
-const typeLegend = computed(() => SUBSCRIPTION_TYPES.map((t, i) => ({ label: t.label, value: typeValues.value[i], color: ['#3b82f6','#8b5cf6','#f97316','#10b981'][i] })))
-
-const areaGroups = computed(() => {
-  const map = {}
-  subscribersStore.subscribers.forEach(s => {
-    map[s.area] = (map[s.area] || 0) + 1
-  })
-  return Object.entries(map).sort((a, b) => b[1] - a[1])
-})
-const areaLabels = computed(() => areaGroups.value.map(([k]) => k))
-const areaValues = computed(() => areaGroups.value.map(([, v]) => v))
-const areaLegend = computed(() => areaGroups.value.map(([k, v], i) => ({ label: k, value: v, color: ['#06b6d4','#3b82f6','#8b5cf6','#ec4899','#f59e0b'][i % 5] })))
-
-const paymentMethodLegend = computed(() => {
-  const map = {}
-  paymentsStore.payments.forEach(p => {
-    map[p.method] = (map[p.method] || 0) + 1
-  })
-  const total = paymentsStore.payments.length || 1
-  return Object.entries(map).map(([k, v], i) => ({
-    label: PAYMENT_METHODS.find(m => m.value === k)?.label || k,
-    count: v,
-    percent: Math.round((v / total) * 100),
-    color: ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444'][i % 5]
-  }))
-})
-
-const topSpenders = computed(() => {
-  const map = {}
-  billsStore.bills.forEach(b => {
-    if (!map[b.subscriberId]) map[b.subscriberId] = { total: 0, count: 0 }
-    map[b.subscriberId].total += Number(b.totalAmount)
-    map[b.subscriberId].count += 1
-  })
-  return Object.entries(map).map(([id, data]) => {
-    const sub = subscribersStore.subscribers.find(s => s.id === Number(id))
-    return { id, name: sub?.name || 'غير معروف', total: data.total, billsCount: data.count }
-  }).sort((a, b) => b.total - a.total).slice(0, 5)
-})
-
-const monthlyReport = computed(() => {
-  const monthsMap = {}
-  billsStore.bills.forEach(b => {
-    const d = new Date(b.issueDate)
-    const key = `${d.getFullYear()}-${d.getMonth()}`
-    if (!monthsMap[key]) monthsMap[key] = { month: `${MONTHS_AR[d.getMonth()]} ${d.getFullYear()}`, count: 0, total: 0, collected: 0, date: d }
-    monthsMap[key].count += 1
-    monthsMap[key].total += Number(b.totalAmount)
-  })
-  paymentsStore.payments.forEach(p => {
-    const d = new Date(p.paymentDate)
-    const key = `${d.getFullYear()}-${d.getMonth()}`
-    if (monthsMap[key]) monthsMap[key].collected += Number(p.amount)
-  })
-  return Object.values(monthsMap).sort((a, b) => b.date - a.date).map(r => ({
-    ...r,
-    rate: r.total ? Math.round((r.collected / r.total) * 100) : 0
-  }))
-})
-
-const getSubscriberName = (id) => subscribersStore.subscribers.find(s => s.id === id)?.name || 'غير معروف'
-const daysOverdue = (dueDate) => Math.floor((new Date() - new Date(dueDate)) / (1000 * 60 * 60 * 24))
-
-const renderPaymentMethodChart = () => {
-  if (!paymentMethodChart.value) return
-  if (pmChartInstance) pmChartInstance.destroy()
-  const labels = paymentMethodLegend.value.map(l => l.label)
-  const values = paymentMethodLegend.value.map(l => l.count)
-  const colors = paymentMethodLegend.value.map(l => l.color)
-  pmChartInstance = new Chart(paymentMethodChart.value, {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '65%',
-      plugins: { legend: { display: false }, tooltip: { rtl: true, backgroundColor: '#1f2937', titleFont: { family: 'Cairo' }, bodyFont: { family: 'Cairo' } } }
-    }
-  })
+const exportBalancesReport = () => {
+  const data = filteredBalances.value.map(s => ({ 'رقم الحساب': s.accountNumber, 'الاسم': s.name, 'المنطقة': s.areaCode, 'افتتاحي': s.openingBalance, 'إيصالات': s.totalReceipts, 'خصومات': s.totalDiscounts, 'حالي': s.current, 'الحالة': s.current > 0 ? 'عليه' : s.current < 0 ? 'له' : 'صفر' }))
+  exportToExcel(data, `تقرير-الأرصدة-${new Date().toISOString().split('T')[0]}`, 'أرصدة')
 }
-
-const exportReport = () => {
-  // simple CSV export
-  const csv = monthlyReport.value.map(r => `${r.month},${r.count},${r.total},${r.collected},${r.total - r.collected},${r.rate}%`).join('\n')
-  const header = 'الشهر,عدد الفواتير,الإجمالي,المحصل,المستحق,معدل التحصيل\n'
-  const blob = new Blob(['\ufeff' + header + csv], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  link.download = `تقرير-${new Date().toISOString().split('T')[0]}.csv`
-  link.click()
-}
-
-const printReport = () => window.print()
 </script>
