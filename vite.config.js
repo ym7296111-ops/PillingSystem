@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
-  base: '/subscriber-management-system/',
+  base: '/PillingSystem/',
   resolve: {
     alias: {
       '@': resolve(__dirname, './src')
