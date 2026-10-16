@@ -163,3 +163,22 @@ export const seedReceiptTypes = async () => {
     ])
   }
 }
+
+// فتح قاعدة البيانات مع معالجة الأخطاء - مطلوب قبل أي عملية
+db.open().catch(err => {
+  console.error('فشل فتح قاعدة البيانات IndexedDB:', err)
+})
+
+// التأكد من تهيئة قاعدة البيانات
+export const initDatabase = async () => {
+  try {
+    await db.open()
+    await seedDefaultSettings()
+    await seedReceiptTypes()
+    console.log('✅ تم تهيئة قاعدة البيانات بنجاح')
+    return true
+  } catch (err) {
+    console.error('❌ فشل تهيئة قاعدة البيانات:', err)
+    throw err
+  }
+}
