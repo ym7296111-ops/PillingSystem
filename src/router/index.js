@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
-  history: createWebHistory('/subscriber-management-system/'),
+  history: createWebHistory('/PillingSystem/'), 
   routes: [
     { path: '/', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: 'لوحة التحكم', icon: '📊' } },
     { path: '/hierarchy', name: 'hierarchy', component: () => import('@/views/HierarchyView.vue'), meta: { title: 'إدارة الهيكلية', icon: '🏗️' } },
