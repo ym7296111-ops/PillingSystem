@@ -27,3 +27,12 @@
    ```bash
    git clone https://github.com/YOUR_USERNAME/subscriber-management-system.git
    cd subscriber-management-system
+   تثبيت الحزم:
+bash
+
+1 npm install
+تشغيل خادم التطوير:
+bash
+
+1 npm run dev
+افتح المتصفح على: http://localhost:5173/subscriber-management-system/
